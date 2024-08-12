@@ -40,7 +40,7 @@ func userHandler(router *mux.Router) {
 func busHandler(router *mux.Router) {
 	router.Handle("/addbus", auth.VerifyAdmin(http.HandlerFunc(BusController.AddBus))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/buses/{busID}", BusController.GetBusByID).Methods("GET")
-	router.HandleFunc("/buses/search", BusController.GetSearchedBus).Methods("POST", "OPTIONS")
+	router.HandleFunc("/buses/search/{page}", BusController.GetSearchedBus).Methods("POST", "OPTIONS")
 }
 
 func bookingHandler(router *mux.Router) {

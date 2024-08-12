@@ -6,6 +6,7 @@ import (
 	auth "Redbus_backend/Helpers/Auth"
 	helper "Redbus_backend/Helpers/EncryptDecrypt"
 	"log"
+	"os"
 	"time"
 
 	stringgenerator "Redbus_backend/Helpers/RandomStringGenerator"
@@ -25,8 +26,62 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// ////////////////////////////////////////////////////////////////////////////////////////
+// HELPER FUNCTIONS
+// ////////////////////////////////////////////////////////////////////////////////////////
+func ifEmailExists(email string) string {
+	collection := connection.ConnectDB("Users")
+	var user models.User
+	filter := bson.M{"email": email}
+	err := collection.FindOne(context.TODO(), filter).Decode(&user)
+	if err != nil {
+		return ""
+	}
+	return user.ID.Hex()
+}
+
+func createTTLIndex(collection *mongo.Collection) error {
+	// Create a TTL index on the expireAt field with an expiration time of 10 minutes (600 seconds)
+	indexModel := mongo.IndexModel{
+		Keys: bson.D{
+			{Key: "expiresAt", Value: 1},
+		},
+		Options: options.Index().SetExpireAfterSeconds(0),
+	}
+
+	_, err := collection.Indexes().CreateOne(context.Background(), indexModel)
+	return err
+}
+
+func UpdatePassword(userID string, newPassword string) {
+	userCollection := connection.ConnectDB("Users")
+	encryptSecret := os.Getenv("ENCRYPTION_KEY")
+	var user models.User
+	objID, _ := primitive.ObjectIDFromHex(userID)
+	filter := bson.M{"_id": objID}
+	err := userCollection.FindOne(context.TODO(), filter).Decode(&user)
+	if err != nil {
+		fmt.Println("User not found!")
+	}
+	encryptedPass := helper.Encrypt([]byte(newPassword), encryptSecret)
+	filter = bson.M{"_id": objID}
+	update := bson.M{
+		"$set": bson.M{
+			"encryptedPassword": hex.EncodeToString(encryptedPass),
+		},
+	}
+	_, err = userCollection.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		fmt.Println("Unable to update")
+	}
+}
+
+// ////////////////////////////////////////////////////////////////////////////////////////
+// API FUNCTIONS
+// ////////////////////////////////////////////////////////////////////////////////////////
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	Generic.SetupResponse(&w, r)
+	encryptSecret := os.Getenv("ENCRYPTION_KEY")
 
 	if r.Method == "POST" {
 		w.Header().Set("Content-Type", "application/json")
@@ -43,7 +98,7 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 
 		//Encrypting password
 		old_pass := user.EncryptedPassword
-		encryptedPass := helper.Encrypt([]byte(old_pass), "SecretKey")
+		encryptedPass := helper.Encrypt([]byte(old_pass), encryptSecret)
 		user.EncryptedPassword = hex.EncodeToString(encryptedPass)
 		user.ID = primitive.NewObjectID()
 
@@ -64,18 +119,16 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "POST" {
 		w.Header().Set("Content-Type", "application/json")
+		encryptSecret := os.Getenv("ENCRYPTION_KEY")
 
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			fmt.Println(err)
-			// log.Fatal(errr)
+			log.Fatal(err)
 		}
 		asString := string(data)
 
 		var loginDetails map[string]interface{}
-
 		json.Unmarshal([]byte(asString), &loginDetails)
-
 		email, ok := loginDetails["email"].(string)
 		if !ok {
 			fmt.Println("email is not a string")
@@ -84,18 +137,18 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		password, _ := loginDetails["password"].(string)
 
 		collection := connection.ConnectDB("Users")
-
 		filter := bson.M{"email": email}
 		var user models.User
 		errr := collection.FindOne(context.TODO(), filter).Decode(&user)
 		if errr != nil {
-			// connection.GetError(err, w)
 			json.NewEncoder(w).Encode("invalid email")
 			return
 		}
 		hex_pass, _ := hex.DecodeString(user.EncryptedPassword)
-		decryptedValue := helper.Decrypt(hex_pass, "SecretKey")
+		decryptedValue := helper.Decrypt(hex_pass, encryptSecret)
 		if password == string(decryptedValue) {
+			//the user is verified and therefore a JWT token is created and stored in cookies
+			fmt.Println(user.ID)
 			token, e := auth.CreateToken(user.ID.Hex(), email, user.Role)
 			if e != nil {
 				fmt.Println(e)
@@ -105,7 +158,6 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 				Value:    token,
 				Path:     "/",
 				HttpOnly: true,
-				// SameSite: http.SameSiteLaxMode,
 			}
 			http.SetCookie(w, cookie)
 			json.NewEncoder(w).Encode(token)
@@ -138,31 +190,8 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(models.User(user))
 }
 
-func ifEmailExists(email string) string {
-	collection := connection.ConnectDB("Users")
-	var user models.User
-	filter := bson.M{"email": email}
-	err := collection.FindOne(context.TODO(), filter).Decode(&user)
-	if err != nil {
-		return ""
-	}
-	return user.ID.Hex()
-}
-
-func createTTLIndex(collection *mongo.Collection) error {
-	// Create a TTL index on the expireAt field with an expiration time of 10 minutes (600 seconds)
-	indexModel := mongo.IndexModel{
-		Keys: bson.D{
-			{Key: "expiresAt", Value: 1},
-		},
-		Options: options.Index().SetExpireAfterSeconds(0),
-	}
-
-	_, err := collection.Indexes().CreateOne(context.Background(), indexModel)
-	return err
-}
-
 func VerifyEmailAndSendKey(w http.ResponseWriter, r *http.Request) {
+	//will input a json with just email
 	Generic.SetupResponse(&w, r)
 
 	if r.Method == "POST" {
@@ -170,13 +199,10 @@ func VerifyEmailAndSendKey(w http.ResponseWriter, r *http.Request) {
 
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			fmt.Println(err)
-			// log.Fatal(errr)
+			log.Fatal(err)
 		}
 		asString := string(data)
-
 		var emailDetails map[string]interface{}
-
 		json.Unmarshal([]byte(asString), &emailDetails)
 
 		email, ok := emailDetails["email"].(string)
@@ -206,8 +232,6 @@ func VerifyEmailAndSendKey(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Fatalf("Failed to insert document: %v", err)
 			}
-			log.Println("Document inserted successfully")
-
 			json.NewEncoder(w).Encode(detailsToBeSent)
 			//this userID and Key will be sent in the link via email to the user on which he will click
 			//upon clicking he will have to enter password and it will be confirmed in the frontend
@@ -220,24 +244,6 @@ func VerifyEmailAndSendKey(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func UpdatePassword(userID string, newPassword string) {
-	userCollection := connection.ConnectDB("Users")
-	var user models.User
-	objID, _ := primitive.ObjectIDFromHex(userID)
-	filter := bson.M{"_id": objID}
-	err := userCollection.FindOne(context.TODO(), filter).Decode(&user)
-	if err != nil {
-		fmt.Println("User not found!")
-	}
-	encryptedPass := helper.Encrypt([]byte(newPassword), "SecretKey")
-	filter = bson.M{"_id": objID}
-	update := bson.M{"$set": bson.M{"encryptedPassword": hex.EncodeToString(encryptedPass)}}
-	_, err = userCollection.UpdateOne(context.TODO(), filter, update)
-	if err != nil {
-		fmt.Println("Unable to update")
-	}
-}
-
 func ResetPassword(w http.ResponseWriter, r *http.Request) {
 	Generic.SetupResponse(&w, r)
 
@@ -247,15 +253,11 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 		//body will have userID, key and new password
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			fmt.Println(err)
-			// log.Fatal(errr)
+			log.Fatal(err)
 		}
 		asString := string(data)
-
 		var updateDetails map[string]interface{}
-
 		json.Unmarshal([]byte(asString), &updateDetails)
-
 		userID, ok := updateDetails["userID"].(string)
 		if !ok {
 			fmt.Println("userID is not a string")
@@ -290,7 +292,6 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode("Your key does not match")
 		}
 	}
-
 }
 
 func Logout(w http.ResponseWriter, r *http.Request) {

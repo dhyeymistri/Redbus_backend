@@ -2,6 +2,7 @@ package auth
 
 import (
 	"encoding/json"
+	"os"
 
 	"fmt"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-var secretKey = []byte("JWTSecret")
+var secretKey = os.Getenv("JWT_SECRET_KEY")
 
 func CreateToken(id string, email string, role string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256,
@@ -20,7 +21,7 @@ func CreateToken(id string, email string, role string) (string, error) {
 			"role":  role,
 			"exp":   time.Now().Add(time.Hour * 72).Unix(),
 		})
-	tokenString, err := token.SignedString(secretKey)
+	tokenString, err := token.SignedString([]byte(secretKey))
 	if err != nil {
 		return "", nil
 	}
@@ -56,7 +57,7 @@ func VerifyJWT(next http.Handler) http.Handler {
 
 func VerifyToken(tokenString string) error {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return secretKey, nil
+		return []byte(secretKey), nil
 	})
 	if err != nil {
 		return err
@@ -93,7 +94,7 @@ func VerifyAdmin(next http.Handler) http.Handler {
 
 func GetRole(tokenString string) string {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return secretKey, nil
+		return []byte(secretKey), nil
 	})
 	if err != nil {
 		return err.Error()
@@ -109,7 +110,7 @@ func GetRole(tokenString string) string {
 
 func GetUserID(tokenString string) string {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return secretKey, nil
+		return []byte(secretKey), nil
 	})
 	if err != nil {
 		return err.Error()

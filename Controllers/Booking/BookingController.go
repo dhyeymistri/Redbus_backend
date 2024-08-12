@@ -18,6 +18,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type BookedSeats struct {
+	ID        primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	BookingID primitive.ObjectID `json:"bookingID" bson:"bookingID"`
+	Seats     []models.Seat      `json:"seats" bson:"seats"`
+}
+
 type BookSeatDoc struct {
 	Booking            models.Booking `json:"booking" bson:"booking"`
 	SeatIDs            []string       `json:"seatIDs" bson:"seatIDs"`
@@ -75,34 +81,7 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 		}
 		userID := auth.GetUserID(cookie.Value)
 		objUserID, _ := primitive.ObjectIDFromHex(userID)
-		fmt.Println("vallllllllll", objUserID)
-
-		// bookingResult := bookingDetails["booking"].(map[string]interface{})
-		// try := myFunc(bookingResult)
-		// fmt.Println(try)
-		// var booking models.Booking
-		// err = json.NewDecoder(rr).Decode(&booking)
-		// stringBusID := bookingResult["BusID"].(string)
-		// objID, _ := primitive.ObjectIDFromHex(stringBusID)
-		// booking.BusID = objID
-
-		// amenities := bookingResult["Amenities"].(map[string]interface{})
-		// booking.Amenities = amenities
-		// fmt.Println(booking.Amenities)
-
-		// busResult := bookingResult["bus"].(map[string]interface{})
-		// fmt.Println(bookingResult["BusID"])
-
-		// busID := bookingResult["BusID"].(string)
-		// travelStartDateString := bookingResult["TravelStartDate"].(string)
-		// travelEndDateString := bookingResult["TravelEndDate"].(string)
-		// // travelStartDate, _ := time.Parse("2006-01-02", travelStartDateString)
-		// passengerName := bookingDetails["passengerName"].(string)
-		// passengerGender := bookingDetails["passengerGender"].(string)
-		// passengerAge := bookingDetails["passengerAge"].(float64)
-		// seatID := bookingDetails["seatID"].(string)
-		// objSeatID, _ := primitive.ObjectIDFromHex(seatID)
-		// // fmt.Println(busID, travelEndDateString, travelStartDateString)
+		fmt.Println(objUserID)
 		fmt.Println(busID, travelStartDate, travelEndDate, arrPassengerAge, arrPassengerName, arrPassengerGender, arrSeatID)
 
 		// objBusID, _ := primitive.ObjectIDFromHex(busID)
@@ -132,6 +111,7 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			for outerIndex := range arrSeatID {
 				for idx := range booking.Bus.Seats {
+					fmt.Println("CHECK")
 					if booking.Bus.Seats[idx].SeatID == arrSeatID[outerIndex] {
 						if arrPassengerGender[outerIndex] == "F" && booking.Bus.Seats[idx].OnlyMale {
 							json.NewEncoder(w).Encode("This is an only male seat and female passenger cannot book this for safety purpose")
@@ -160,47 +140,6 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			// count := 0
-			// groupNo := ""
-			// for idx := range booking.Bus.Seats {
-			// 	if booking.Bus.Seats[idx].SeatID == seatID {
-			// 		if passengerGender == "F" && booking.Bus.Seats[idx].OnlyMale {
-			// 			json.NewEncoder(w).Encode("This is an only male seat and female passenger cannot book this for safety purpose")
-			// 			return
-			// 		}
-			// 		if passengerGender == "M" && booking.Bus.Seats[idx].OnlyFemale {
-			// 			json.NewEncoder(w).Encode("This is an only female seat and a male passenger cannot book this for safety purpose")
-			// 			return
-			// 		}
-			// 		booking.Bus.Seats[idx].PassengerAge = int(passengerAge)
-			// 		booking.Bus.Seats[idx].PassengerGender = passengerGender
-			// 		booking.Bus.Seats[idx].PassengerName = passengerName
-			// 		booking.Bus.Seats[idx].SeatAvailibility = false
-			// 		if passengerGender == "F" {
-			// 			booking.Bus.Seats[idx].OnlyFemale = true
-			// 			booking.Bus.Seats[idx].OnlyMale = false
-			// 			groupNo = booking.Bus.Seats[idx].Group
-			// 		} else {
-			// 			booking.Bus.Seats[idx].OnlyFemale = false
-			// 			booking.Bus.Seats[idx].OnlyMale = true
-			// 			groupNo = booking.Bus.Seats[idx].Group
-			// 		}
-			// 		count++
-			// 	}
-			// }
-			// if groupNo != "" {
-			// 	for idx := range booking.Bus.Seats {
-			// 		if booking.Bus.Seats[idx].Group == groupNo {
-			// 			if passengerGender == "F" {
-			// 				booking.Bus.Seats[idx].OnlyFemale = true
-			// 				booking.Bus.Seats[idx].OnlyMale = false
-			// 			} else {
-			// 				booking.Bus.Seats[idx].OnlyFemale = false
-			// 				booking.Bus.Seats[idx].OnlyMale = true
-			// 			}
-			// 		}
-			// 	}
-			// }
 			booking.AvailableSeats = booking.AvailableSeats - len(arrPassengerAge)
 
 			//gender verification-------------------------------------------------
@@ -223,7 +162,25 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 
 			// Update the BookSeatDoc if it exists, otherwise insert a new BookSeatDoc
 			opts := options.Update().SetUpsert(true)
-			_, err := bookingCollection.UpdateOne(context.TODO(), bookingsFilter, update, opts)
+			result, err := bookingCollection.UpdateOne(context.TODO(), bookingsFilter, update, opts)
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println(result.UpsertedID)
+			bookedSeats := BookedSeats{
+				BookingID: result.UpsertedID.(primitive.ObjectID),
+				Seats:     booking.Bus.Seats,
+			}
+			filter = bson.M{"bookingID": bookedSeats.BookingID}
+
+			seatsCollection := connection.ConnectDB("BookedSeats")
+			update = bson.M{
+				"$set": bson.M{
+					"seats": bookedSeats.Seats,
+				},
+			}
+			opts = options.Update().SetUpsert(true)
+			result, err = seatsCollection.UpdateOne(context.TODO(), filter, update, opts)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -260,11 +217,11 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 			ticket.TotalPassenger = len(bookingDetails.SeatIDs)
 
 			ticketCollection := connection.ConnectDB("Tickets")
-			result, err := ticketCollection.InsertOne(context.TODO(), ticket)
+			insertedResult, err := ticketCollection.InsertOne(context.TODO(), ticket)
 			if err != nil {
 				log.Fatal(err)
 			}
-			json.NewEncoder(w).Encode(result.InsertedID)
+			json.NewEncoder(w).Encode(insertedResult.InsertedID)
 		} else {
 			myBus := foundBooking.Bus
 			for outerIndex := range arrSeatID {
@@ -292,20 +249,6 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			// groupNo := ""
-			// if groupNo != "" {
-			// 	for idx := range myBus.Seats {
-			// 		if myBus.Seats[idx].Group == groupNo {
-			// 			if passengerGender == "F" {
-			// 				myBus.Seats[idx].OnlyFemale = true
-			// 				myBus.Seats[idx].OnlyMale = false
-			// 			} else {
-			// 				myBus.Seats[idx].OnlyFemale = false
-			// 				myBus.Seats[idx].OnlyMale = true
-			// 			}
-			// 		}
-			// 	}
-			// }
 			foundBooking.AvailableSeats = foundBooking.AvailableSeats - len(arrPassengerAge)
 
 			for idx := range rowSlice {
@@ -378,38 +321,6 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		//I need to do updateONE with the filters in place, if it gives error, then insert
-		//or I can also try upsert
-
-		// e := bookingCollection.FindOne(context.TODO(), bookingsFilter).Decode(&booking)
-		// if e != nil {
-
-		// 	busCollection := connection.ConnectDB("Buses")
-		// 	var bus models.Bus
-		// 	busFilter := bson.M{"_id": objBusID}
-		// 	err := busCollection.FindOne(context.TODO(), busFilter).Decode(&bus)
-		// 	if err != nil {
-		// 		fmt.Println("Bus not found")
-		// 	}
-		// 	booking.Bus = bus
-		// 	booking.BusID = bus.ID
-		// 	booking.TravelStartDate = travelStartDateString
-		// 	booking.TravelEndDate = travelEndDateString
-
-		// json.NewEncoder(w).Encode(booking)
-		// 	// if minorhelpers.HasDateChanged(weekendFilteredStartTime[index], weekendFilteredEndTime[index]) {
-		// 	// 	booking.TravelEndDate = dateForm.Add(time.Hour * 24).Format("2006-01-02")
-		// 	// } else {
-		// 	// 	booking.TravelEndDate = travelDate
-		// 	// }
-		// 	// searchedBusResult = append(searchedBusResult, booking)
-		// 	json.NewEncoder(w).Encode(booking)
-		// 	fmt.Println("New booking added")
-		// } else {
-		// 	// searchedBusResult = append(searchedBusResult, booking)
-		// 	fmt.Println("booking present already")
-		// }
 	}
 }
 
@@ -426,7 +337,6 @@ func SelectSeat(w http.ResponseWriter, r *http.Request) {
 		}
 		asString := string(data)
 		var selectSeatDetails models.Booking
-		// rr := strings.NewReader(asString)
 
 		var params = mux.Vars(r)
 

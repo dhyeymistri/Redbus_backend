@@ -3,7 +3,9 @@ package bus
 import (
 	connection "Redbus_backend/Config"
 	Generic "Redbus_backend/Generic"
+	filtersearchedbuses "Redbus_backend/Helpers/FilterSearchedBuses"
 	seating "Redbus_backend/Helpers/SeatingArrangement"
+	"strconv"
 
 	minorhelpers "Redbus_backend/Helpers/SmallFunctionalities"
 	models "Redbus_backend/Models"
@@ -105,6 +107,9 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		w.Header().Set("Content-Type", "application/json")
 
+		params := mux.Vars(r)
+		page, _ := strconv.Atoi(params["page"])
+
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			fmt.Println(err)
@@ -112,11 +117,18 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 		}
 		asString := string(data)
 		var searchDetails map[string]interface{}
-
 		json.Unmarshal([]byte(asString), &searchDetails)
 		startDestination, _ := searchDetails["fromLocation"].(string)
 		finalDestination := searchDetails["toLocation"].(string)
 		travelDate := searchDetails["travelDate"].(string)
+		filters := map[string]interface{}{}
+		value, exists := searchDetails["filters"]
+		if exists {
+			filters = value.(map[string]interface{})
+		} else {
+			fmt.Print("No filtering")
+		}
+
 		dateForm, _ := time.Parse("2006-01-02", travelDate)
 
 		currentDate := time.Now().Format("2006-01-02")
@@ -135,7 +147,6 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 
 		errr := locationCollection.FindOne(context.TODO(), startFilter).Decode(&startOfRoute)
 		if errr != nil {
-			// connection.GetError(err, w)
 			json.NewEncoder(w).Encode("Redbus does not serve in " + startDestination)
 			return
 		}
@@ -147,20 +158,17 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 		// commonBuses := minorhelpers.FindCommonElements(startOfRoute.Buses, endOfRoute.Buses)
 		var weekendFilteredBusID []primitive.ObjectID
 		var weekendFilteredStartTime []string
-		var weekendFilteredEndTime []string
-		currentTime := time.Now().Format("15:04")
+		// var weekendFilteredEndTime []string
+		fmt.Println(len(endOfRoute.Buses))
+		// currentTime := time.Now().Format("15:04")
 		for index, checkBool := range startOfRoute.IsWeekend {
-			if startOfRoute.DepartureTime[index] > currentTime {
-				if dateForm.Weekday().String() == "Sunday" || dateForm.Weekday().String() == "Saturday" {
+			if dateForm.Weekday().String() == "Sunday" || dateForm.Weekday().String() == "Saturday" {
+				weekendFilteredStartTime = append(weekendFilteredStartTime, startOfRoute.DepartureTime[index])
+				weekendFilteredBusID = append(weekendFilteredBusID, startOfRoute.Buses[index])
+			} else {
+				if !checkBool {
 					weekendFilteredStartTime = append(weekendFilteredStartTime, startOfRoute.DepartureTime[index])
-					weekendFilteredEndTime = append(weekendFilteredEndTime, endOfRoute.ArrivalTime[index])
 					weekendFilteredBusID = append(weekendFilteredBusID, startOfRoute.Buses[index])
-				} else {
-					if !checkBool {
-						weekendFilteredStartTime = append(weekendFilteredStartTime, startOfRoute.DepartureTime[index])
-						weekendFilteredEndTime = append(weekendFilteredEndTime, endOfRoute.ArrivalTime[index])
-						weekendFilteredBusID = append(weekendFilteredBusID, startOfRoute.Buses[index])
-					}
 				}
 			}
 		}
@@ -191,9 +199,9 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 							booking.TravelStartLocation = startDestination
 							booking.TravelEndLocation = finalDestination
 							booking.TravelStartTime = weekendFilteredStartTime[index]
-							booking.TravelEndTime = weekendFilteredEndTime[index]
+							booking.TravelEndTime = obj.ArrivalTime
 
-							timeDiff, _ = minorhelpers.TimeDifference(weekendFilteredStartTime[index], weekendFilteredEndTime[index])
+							timeDiff, _ = minorhelpers.TimeDifference(weekendFilteredStartTime[index], obj.ArrivalTime)
 							timeDiffInMinutes := timeDiff.Minutes()
 							seaterPrice := booking.Bus.SeaterCostPerMinute
 							sleeperPrice := booking.SleeperCostPerMinute
@@ -226,7 +234,7 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 								}
 							}
 
-							if minorhelpers.HasDateChanged(weekendFilteredStartTime[index], weekendFilteredEndTime[index]) {
+							if minorhelpers.HasDateChanged(weekendFilteredStartTime[index], obj.ArrivalTime) {
 								booking.TravelEndDate = dateForm.Add(time.Hour * 24).Format("2006-01-02")
 							} else {
 								booking.TravelEndDate = travelDate
@@ -245,8 +253,25 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		json.NewEncoder(w).Encode(searchedBusResult)
+		//filtering ------- make a function
+		if len(filters) != 0 {
+			searchedBusResult = filtersearchedbuses.Filtering(filters, searchedBusResult)
+		}
 
+		//pagination
+		startIndex := (page) * 10
+		var paginatedResult []models.Booking
+		if startIndex < len(searchedBusResult) {
+			endIndex := startIndex + 10
+			if endIndex > len(searchedBusResult) {
+				endIndex = len(searchedBusResult)
+			}
+			paginatedResult = searchedBusResult[startIndex:endIndex]
+		} else {
+			json.NewEncoder(w).Encode("No results found")
+			return
+		}
+		json.NewEncoder(w).Encode(paginatedResult)
 	}
 }
 
