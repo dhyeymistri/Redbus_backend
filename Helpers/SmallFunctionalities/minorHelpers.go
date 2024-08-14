@@ -1,6 +1,7 @@
 package minorhelpers
 
 import (
+	models "Redbus_backend/Models"
 	"fmt"
 	"time"
 
@@ -78,4 +79,62 @@ func TimeDifference(t1, t2 string) (time.Duration, error) {
 	}
 
 	return diff, nil
+}
+
+func MakeTicket(user models.User, booking models.Booking, bus models.Bus, bookingDetails models.BookSeatDoc) models.Ticket {
+	var ticket models.Ticket
+	ticket.CustomerID = user.ID
+	ticket.CustomerName = user.FirstName + " " + user.LastName
+	ticket.BusID = booking.BusID
+	ticket.BusName = bus.OperatorName
+	ticket.DropAddress = booking.TravelEndLocation
+	ticket.DropDate = booking.TravelEndDate
+	ticket.Email = user.Email
+	ticket.PickDate = booking.TravelStartDate
+	ticket.DropTime = booking.TravelEndTime
+	ticket.PickTime = booking.TravelStartTime
+	ticket.PickupAddress = booking.TravelStartLocation
+	ticket.BaseFare = bookingDetails.BaseFare
+	ticket.DiscountedAmount = bookingDetails.DiscountedAmount
+	ticket.GST = bookingDetails.GST
+	ticket.PassengerAges = bookingDetails.PassengerAges
+	ticket.PassengerGenders = bookingDetails.PassengerGenders
+	ticket.PassengerNames = bookingDetails.PassengerNames
+	ticket.SeatIDs = bookingDetails.SeatIDs
+	ticket.TotalPayableAmount = bookingDetails.TotalPayableAmount
+	ticket.TotalPassenger = len(bookingDetails.SeatIDs)
+
+	return ticket
+}
+
+func AllotSeatPrices(bus models.Bus, timeDiffInMinutes float64) []models.Seat {
+	seats := bus.Seats
+	seaterPrice := bus.SeaterCostPerMinute
+	sleeperPrice := bus.SleeperCostPerMinute
+	for idx, seat := range seats {
+		if seat.Class == "C" {
+			if seat.SeatType == "SE" {
+				seats[idx].Cost = int(timeDiffInMinutes * seaterPrice)
+			} else {
+				seats[idx].Cost = int(timeDiffInMinutes * sleeperPrice)
+			}
+		} else if seat.Class == "B" {
+			if seat.SeatType == "SE" {
+				tmp := timeDiffInMinutes * seaterPrice * 1.2
+				seats[idx].Cost = int(tmp)
+			} else {
+				tmp := timeDiffInMinutes * sleeperPrice * 1.2
+				seats[idx].Cost = int(tmp)
+			}
+		} else if seat.Class == "A" {
+			if seat.SeatType == "SE" {
+				tmp := timeDiffInMinutes * seaterPrice * 1.5
+				seats[idx].Cost = int(tmp)
+			} else {
+				tmp := timeDiffInMinutes * sleeperPrice * 1.5
+				seats[idx].Cost = int(tmp)
+			}
+		}
+	}
+	return seats
 }

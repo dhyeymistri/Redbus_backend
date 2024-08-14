@@ -3,6 +3,7 @@ package ticket
 import (
 	connection "Redbus_backend/Config"
 	Generic "Redbus_backend/Generic"
+	getbusdetail "Redbus_backend/Helpers/GetBusDetail"
 	models "Redbus_backend/Models"
 	"context"
 	"encoding/json"
@@ -52,19 +53,29 @@ func CancelTicket(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 		bookingID := booking.ID
+		bus := getbusdetail.GetBusDetail(booking.BusID)
+
+		var bookedSeats models.BookedSeats
+		seatsCollection := connection.ConnectDB("BookedSeats")
+		filter = bson.M{"bookingID": bookingID}
+		err = seatsCollection.FindOne(context.TODO(), filter).Decode(&bookedSeats)
+		if err != nil {
+			log.Fatal(err)
+		}
+		seats := bookedSeats.Seats
 		for _, seatID := range arrSeatID {
 			objSeatID, _ := primitive.ObjectIDFromHex(seatID)
-			for index := range booking.Bus.Seats {
-				if booking.Bus.Seats[index].SeatID == objSeatID {
-					booking.Bus.Seats[index].OnlyFemale = false
-					booking.Bus.Seats[index].OnlyMale = false
-					booking.Bus.Seats[index].SeatAvailibility = true
-					booking.Bus.Seats[index].PassengerGender = ""
-					booking.Bus.Seats[index].PassengerName = ""
-					booking.Bus.Seats[index].PassengerAge = 0
-					rowSlice = append(rowSlice, booking.Bus.Seats[index].Row)
-					colSlice = append(colSlice, booking.Bus.Seats[index].Column)
-					deckSlice = append(deckSlice, booking.Bus.Seats[index].IsUpperDeck)
+			for index := range seats {
+				if seats[index].SeatID == objSeatID {
+					seats[index].OnlyFemale = false
+					seats[index].OnlyMale = false
+					seats[index].SeatAvailibility = true
+					seats[index].PassengerGender = ""
+					seats[index].PassengerName = ""
+					seats[index].PassengerAge = 0
+					rowSlice = append(rowSlice, seats[index].Row)
+					colSlice = append(colSlice, seats[index].Column)
+					deckSlice = append(deckSlice, seats[index].IsUpperDeck)
 				}
 			}
 		}
@@ -77,29 +88,44 @@ func CancelTicket(w http.ResponseWriter, r *http.Request) {
 			row := rowSlice[idx]
 			col := colSlice[idx]
 			deck := deckSlice[idx]
-			for seatIndex := range booking.Bus.Seats {
-				if (booking.Bus.Seats[seatIndex].Row == row-1 || booking.Bus.Seats[seatIndex].Row == row+1) && booking.Bus.Seats[seatIndex].Column == col && booking.Bus.Seats[seatIndex].IsUpperDeck == deck && booking.Bus.Seats[seatIndex].SeatAvailibility {
-					booking.Bus.Seats[seatIndex].OnlyFemale = false
-					booking.Bus.Seats[seatIndex].OnlyMale = false
+			for seatIndex := range seats {
+				if (seats[seatIndex].Row == row-1 || seats[seatIndex].Row == row+1) && seats[seatIndex].Column == col && seats[seatIndex].IsUpperDeck == deck && seats[seatIndex].SeatAvailibility {
+					seats[seatIndex].OnlyFemale = false
+					seats[seatIndex].OnlyMale = false
 				}
 			}
 		}
 
-		if booking.AvailableSeats == booking.Bus.TotalSeats {
+		if booking.AvailableSeats == bus.TotalSeats {
+			filter = bson.M{"bookingID": bookingID}
+			_, err := seatsCollection.DeleteOne(context.TODO(), filter)
+			if err != nil {
+				log.Fatal(err)
+			}
 			filter = bson.M{"_id": bookingID}
-			_, err := bookingCollection.DeleteOne(context.TODO(), filter)
+			_, err = bookingCollection.DeleteOne(context.TODO(), filter)
 			if err != nil {
 				log.Fatal(err)
 			}
 		} else {
-			filter = bson.M{"_id": bookingID}
+			filter = bson.M{"bookingID": bookingID}
 			update := bson.M{
 				"$set": bson.M{
-					"bus":            booking.Bus,
+					"seats": seats,
+				},
+			}
+			_, err := seatsCollection.UpdateOne(context.TODO(), filter, update)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			filter = bson.M{"_id": bookingID}
+			update = bson.M{
+				"$set": bson.M{
 					"availableSeats": booking.AvailableSeats,
 				},
 			}
-			_, err := bookingCollection.UpdateOne(context.TODO(), filter, update)
+			_, err = bookingCollection.UpdateOne(context.TODO(), filter, update)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -112,7 +138,6 @@ func CancelTicket(w http.ResponseWriter, r *http.Request) {
 		}
 
 		userCollection := connection.ConnectDB("Users")
-		baseFare := ticket.BaseFare
 		currentTime := time.Now()
 		busStartTimeStr := ticket.PickDate + " " + ticket.PickTime
 		busStartTime, _ := time.Parse("2006-01-02 15:04", busStartTimeStr)
@@ -122,14 +147,15 @@ func CancelTicket(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		duration := busStartTime.Sub(currentTime)
+		consideredRefund := ticket.TotalPayableAmount - ticket.GST
 		if duration < 12*time.Hour {
 			refundAmount = 0
 		} else if duration < 24*time.Hour {
-			refundAmount = int(float64(baseFare) * 0.25)
+			refundAmount = int(float64(consideredRefund) * 0.25)
 		} else if duration < 48*time.Hour {
-			refundAmount = int(float64(baseFare) * 0.5)
+			refundAmount = int(float64(consideredRefund) * 0.5)
 		} else {
-			refundAmount = baseFare
+			refundAmount = consideredRefund
 		}
 		update := bson.M{
 			"$inc": bson.M{

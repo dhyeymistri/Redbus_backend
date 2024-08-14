@@ -1,6 +1,7 @@
 package filtersearchedbuses
 
 import (
+	getbusdetail "Redbus_backend/Helpers/GetBusDetail"
 	models "Redbus_backend/Models"
 )
 
@@ -11,7 +12,8 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 		case "ac":
 			if value.(bool) {
 				for idx := range searchedBusResult {
-					if searchedBusResult[idx].Bus.IsAcAvailable {
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					if bus.IsAcAvailable {
 						returnedBookingArray = append(returnedBookingArray, searchedBusResult[idx])
 						// searchedBusResult = append(searchedBusResult[:idx], searchedBusResult[idx+1:]...)
 					}
@@ -20,7 +22,8 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 		case "nonac":
 			if value.(bool) {
 				for idx := range searchedBusResult {
-					if !searchedBusResult[idx].Bus.IsAcAvailable {
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					if !bus.IsAcAvailable {
 						returnedBookingArray = append(returnedBookingArray, searchedBusResult[idx])
 					}
 				}
@@ -28,7 +31,8 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 		case "seater":
 			if value.(bool) {
 				for idx := range searchedBusResult {
-					if searchedBusResult[idx].Bus.BusType == "45SE" || searchedBusResult[idx].Bus.BusType != "8SE33SL" {
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					if bus.BusType == "45SE" || bus.BusType != "8SE33SL" {
 						returnedBookingArray = append(returnedBookingArray, searchedBusResult[idx])
 					}
 				}
@@ -36,7 +40,8 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 		case "sleeper":
 			if value.(bool) {
 				for idx := range searchedBusResult {
-					if searchedBusResult[idx].Bus.BusType != "45SE" && searchedBusResult[idx].Bus.BusType != "8SE33SL" {
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					if bus.BusType != "45SE" && bus.BusType != "8SE33SL" {
 						returnedBookingArray = append(returnedBookingArray, searchedBusResult[idx])
 					}
 				}
@@ -107,9 +112,10 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 			}
 		case "wifi":
 			if value.(bool) {
-				flag := false
 				for idx := range searchedBusResult {
-					for _, item := range searchedBusResult[idx].Amenities {
+					flag := false
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					for _, item := range bus.Amenities {
 						if item == "wifi" {
 							flag = true
 						}
@@ -121,9 +127,10 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 			}
 		case "toilet":
 			if value.(bool) {
-				flag := false
 				for idx := range searchedBusResult {
-					for _, item := range searchedBusResult[idx].Amenities {
+					flag := false
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					for _, item := range bus.Amenities {
 						if item == "toilet" {
 							flag = true
 						}
@@ -135,9 +142,10 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 			}
 		case "waterBottle":
 			if value.(bool) {
-				flag := false
 				for idx := range searchedBusResult {
-					for _, item := range searchedBusResult[idx].Amenities {
+					flag := false
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					for _, item := range bus.Amenities {
 						if item == "waterBottle" {
 							flag = true
 						}
@@ -149,9 +157,10 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 			}
 		case "chargingPoint":
 			if value.(bool) {
-				flag := false
 				for idx := range searchedBusResult {
-					for _, item := range searchedBusResult[idx].Amenities {
+					flag := false
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					for _, item := range bus.Amenities {
 						if item == "chargingPoint" {
 							flag = true
 						}
@@ -163,9 +172,10 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 			}
 		case "blankets":
 			if value.(bool) {
-				flag := false
 				for idx := range searchedBusResult {
-					for _, item := range searchedBusResult[idx].Amenities {
+					flag := false
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					for _, item := range bus.Amenities {
 						if item == "blankets" {
 							flag = true
 						}
@@ -178,7 +188,8 @@ func Filtering(filters map[string]interface{}, searchedBusResult []models.Bookin
 		case "liveTracking":
 			if value.(bool) {
 				for idx := range searchedBusResult {
-					if searchedBusResult[idx].LiveTracking {
+					bus := getbusdetail.GetBusDetail(searchedBusResult[idx].BusID)
+					if bus.LiveTracking {
 						returnedBookingArray = append(returnedBookingArray, searchedBusResult[idx])
 					}
 				}

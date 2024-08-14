@@ -98,13 +98,16 @@ func ApplyOffer(w http.ResponseWriter, r *http.Request) {
 
 		err = offerCollection.FindOne(context.TODO(), offerFilter).Decode(&offer)
 		if err != nil {
-			log.Fatal(err)
+			json.NewEncoder(w).Encode("This offer does not exist")
+			return
+			// log.Fatal(err)
 		}
 
 		currentTime := time.Now()
 		validityTime, _ := time.Parse("2006-01-02 15:04:05", offer.Validity)
+		validityDate := validityTime.Format("2006-01-02")
 		if currentTime.After(validityTime) {
-			json.NewEncoder(w).Encode("This offer is not valid anymore")
+			json.NewEncoder(w).Encode("This offer is not valid anymore. Validity expired at " + validityDate)
 			json.NewEncoder(w).Encode(map[string]interface{}{"baseFare": baseFare, "totalPayableAmount": (baseFare * 105 / 100), "discountedAmount": 0, "gst": (baseFare * 5 / 100)})
 			return
 		}

@@ -10,6 +10,7 @@ import (
 	UserController "Redbus_backend/Controllers/User"
 	WalletController "Redbus_backend/Controllers/Wallet"
 	auth "Redbus_backend/Helpers/Auth"
+	middlewares "Redbus_backend/Helpers/Middlewares"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -40,13 +41,15 @@ func userHandler(router *mux.Router) {
 func busHandler(router *mux.Router) {
 	router.Handle("/addbus", auth.VerifyAdmin(http.HandlerFunc(BusController.AddBus))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/buses/{busID}", BusController.GetBusByID).Methods("GET")
-	router.HandleFunc("/buses/search/{page}", BusController.GetSearchedBus).Methods("POST", "OPTIONS")
+	router.HandleFunc("/buses/search/{page}", BusController.GetSearchedBus).Methods("GET")
 }
 
 func bookingHandler(router *mux.Router) {
 	router.Handle("/bookseat", auth.VerifyJWT(http.HandlerFunc(BookingController.BookSeat))).Methods("POST", "OPTIONS")
 	// router.HandleFunc("/bookseat", BookingController.BookSeat).Methods("POST", "OPTIONS")
-	router.HandleFunc("/selectseat/{seatID}", BookingController.SelectSeat).Methods("POST", "OPTIONS")
+	// router.HandleFunc("/selectseat/{seatID}/{busID}", BookingController.SelectSeat).Methods("GET")
+	router.HandleFunc("/viewseats/{busID}", middlewares.FetchCommonData(BookingController.ViewSeats)).Methods("GET")
+	router.HandleFunc("/selectseat/{seatID}/{busID}", middlewares.FetchCommonData(BookingController.SelectSeat)).Methods("GET")
 }
 
 func walletHandler(router *mux.Router) {
@@ -64,7 +67,7 @@ func offerHandler(router *mux.Router) {
 }
 
 func reviewHandler(router *mux.Router) {
-	router.HandleFunc("/addReview/{customerID}/{busID}", ReviewController.AddReview).Methods("POST", "OPTIONS")
+	router.Handle("/addReview/{customerID}/{busID}", auth.VerifyJWT(http.HandlerFunc(ReviewController.AddReview))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/getReviews/{busID}", ReviewController.GetReviewsByBusID).Methods("GET")
 }
 

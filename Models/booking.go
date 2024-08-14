@@ -5,8 +5,8 @@ import (
 )
 
 type Booking struct {
-	ID primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
-	Bus
+	ID                  primitive.ObjectID `json:"_id,omitempty" bson:"_id,omitempty"`
+	AvailableSeats      int                `json:"availableSeats" bson:"availableSeats"`
 	BusID               primitive.ObjectID `json:"busID" bson:"busID"`
 	TravelStartDate     string             `json:"travelStartDate" bson:"travelStartDate"`
 	TravelEndDate       string             `json:"travelEndDate" bson:"travelEndDate"`

@@ -17,5 +17,5 @@ type Seat struct {
 	IsUpperDeck      bool               `json:"isUpperDeck" bson:"isUpperDeck"`
 	Class            string             `json:"class" bson:"class"`
 	Cost             int                `json:"cost" bson:"cost"`
-	IsSelected       bool               `json:"isSelected" bson::"isSelected"`
+	IsSelected       bool               `json:"isSelected" bson:"isSelected"`
 }
