@@ -3,7 +3,6 @@ package router
 import (
 	BookingController "Redbus_backend/Controllers/Booking"
 	BusController "Redbus_backend/Controllers/Bus"
-	ExpController "Redbus_backend/Controllers/Experiment"
 	OfferController "Redbus_backend/Controllers/Offer"
 	ReviewController "Redbus_backend/Controllers/Review"
 	TicketController "Redbus_backend/Controllers/Ticket"
@@ -20,7 +19,6 @@ func GetRouter() *mux.Router {
 	apiRouter := mux.NewRouter()
 	userHandler(apiRouter)
 	busHandler(apiRouter)
-	experimentHandler(apiRouter)
 	bookingHandler(apiRouter)
 	walletHandler(apiRouter)
 	offerHandler(apiRouter)
@@ -74,8 +72,4 @@ func reviewHandler(router *mux.Router) {
 func ticketHandler(router *mux.Router) {
 	router.HandleFunc("/cancelTicket/{ticketID}", TicketController.CancelTicket).Methods("DELETE")
 	router.HandleFunc("/getTickets/{userID}", TicketController.GetTicketByUserID).Methods("GET")
-}
-
-func experimentHandler(router *mux.Router) {
-	router.HandleFunc("/temp", ExpController.TempDoc).Methods("POST", "OPTIONS")
 }
