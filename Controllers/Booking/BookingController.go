@@ -26,14 +26,12 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		w.Header().Set("Content-Type", "application/json")
 
-		//data is array of bytes
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			fmt.Println("Error with data retrieval")
 		}
 		asString := string(data)
 		var bookingDetails models.BookSeatDoc
-		// rr := strings.NewReader(asString)
 
 		json.Unmarshal([]byte(asString), &bookingDetails)
 		booking := bookingDetails.Booking
@@ -65,13 +63,10 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 		userID := auth.GetUserID(cookie.Value)
 		objUserID, _ := primitive.ObjectIDFromHex(userID)
 
-		// objBusID, _ := primitive.ObjectIDFromHex(busID)
 		bookingCollection := connection.ConnectDB("Bookings")
 		bookingsFilter := bson.M{"busID": busID, "travelStartDate": travelStartDate, "travelEndDate": travelEndDate}
-		// var booking models.Booking
 
 		userCollection := connection.ConnectDB("Users")
-		// userID, ok := getUserID(r)
 		filter := bson.M{"_id": objUserID}
 		totalPayableAmount := bookingDetails.TotalPayableAmount
 		if bookingDetails.DiscountedAmount == 0 {
@@ -181,13 +176,6 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 			}
 
 			//ticket------------------------------------------------
-			userCollection := connection.ConnectDB("Users")
-			var user models.User
-
-			err = userCollection.FindOne(context.TODO(), bson.M{"_id": objUserID}).Decode(&user)
-			if err != nil {
-				log.Fatal(err)
-			}
 			ticket := minorhelpers.MakeTicket(user, booking, bus, bookingDetails)
 			ticketCollection := connection.ConnectDB("Tickets")
 			insertedResult, err := ticketCollection.InsertOne(context.TODO(), ticket)
@@ -272,14 +260,7 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 				log.Fatal(err)
 			}
 
-			//ticket------------------------------------------------
-			userCollection := connection.ConnectDB("Users")
-			var user models.User
-			err = userCollection.FindOne(context.TODO(), bson.M{"_id": objUserID}).Decode(&user)
-			if err != nil {
-				log.Fatal(err)
-			}
-
+			//function that assigns values to tickets
 			ticket := minorhelpers.MakeTicket(user, foundBooking, bus, bookingDetails)
 			ticketCollection := connection.ConnectDB("Tickets")
 			result, err := ticketCollection.InsertOne(context.TODO(), ticket)
@@ -301,6 +282,9 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// made a handler to get the seat data from either the booking, if present in the collection
+// or from the bus data itself to reduce redundant code in this file
+
 func ViewSeats(w http.ResponseWriter, r *http.Request) {
 	handlerData, ok := r.Context().Value("handlerData").(models.HandlerData)
 	if !ok {
@@ -311,7 +295,6 @@ func ViewSeats(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, handlerData.Error.Error(), http.StatusInternalServerError)
 		return
 	}
-	// Respond with seat prices or available seats
 	json.NewEncoder(w).Encode(handlerData.Seats)
 }
 

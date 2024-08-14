@@ -1,7 +1,7 @@
 package models
 
 type Stop struct {
-	Location      string `bson:"location"`
-	ArrivalTime   string `bson:"arrivalTime"`
-	DepartureTime string `bson:"departureTime"`
+	Location      string `json:"location" bson:"location"`
+	ArrivalTime   string `json:"arrivalTime" bson:"arrivalTime"`
+	DepartureTime string `json:"departureTime" bson:"departureTime"`
 }

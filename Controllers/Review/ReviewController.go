@@ -22,7 +22,6 @@ func AddReview(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		w.Header().Set("Content-Type", "application/json")
 
-		//data is array of bytes
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			fmt.Println("Error with data retrieval")
@@ -33,7 +32,6 @@ func AddReview(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal([]byte(asString), &review)
 
 		var params = mux.Vars(r)
-
 		customerID := params["customerID"]
 		busID := params["busID"]
 		objIDCustomer, _ := primitive.ObjectIDFromHex(customerID)
@@ -57,7 +55,6 @@ func AddReview(w http.ResponseWriter, r *http.Request) {
 		}
 
 		//also check that a person can only rate it after the journey has finished
-
 		reviewCollection := connection.ConnectDB("Reviews")
 		_, err = reviewCollection.InsertOne(context.TODO(), review)
 		if err != nil {
@@ -93,16 +90,13 @@ func GetReviewsByBusID(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	busID := params["busID"]
 	objBusID, _ := primitive.ObjectIDFromHex(busID)
-
 	var reviews []models.Review
-
 	reviewCollection := connection.ConnectDB("Reviews")
 	filter := bson.M{"busID": objBusID}
 	cursor, err := reviewCollection.Find(context.TODO(), filter)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	for cursor.Next(context.TODO()) {
 		var review models.Review
 		err = cursor.Decode(&review)
@@ -110,6 +104,10 @@ func GetReviewsByBusID(w http.ResponseWriter, r *http.Request) {
 			log.Fatal(err)
 		}
 		reviews = append(reviews, review)
+	}
+	if len(reviews) == 0 {
+		// w.Write([]byte("sdfsdf"))
+		json.NewEncoder(w).Encode("This bus has no reviews")
 	}
 	json.NewEncoder(w).Encode(reviews)
 }

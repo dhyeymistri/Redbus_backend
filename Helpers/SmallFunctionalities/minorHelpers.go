@@ -3,6 +3,7 @@ package minorhelpers
 import (
 	models "Redbus_backend/Models"
 	"fmt"
+	"mime/multipart"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -137,4 +138,12 @@ func AllotSeatPrices(bus models.Bus, timeDiffInMinutes float64) []models.Seat {
 		}
 	}
 	return seats
+}
+
+func ExtractFileNames(files []*multipart.FileHeader) []string {
+	var fileNames []string
+	for _, file := range files {
+		fileNames = append(fileNames, file.Filename)
+	}
+	return fileNames
 }

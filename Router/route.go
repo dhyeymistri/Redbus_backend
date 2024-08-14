@@ -44,18 +44,14 @@ func busHandler(router *mux.Router) {
 
 func bookingHandler(router *mux.Router) {
 	router.Handle("/bookseat", auth.VerifyJWT(http.HandlerFunc(BookingController.BookSeat))).Methods("POST", "OPTIONS")
-	// router.HandleFunc("/bookseat", BookingController.BookSeat).Methods("POST", "OPTIONS")
-	// router.HandleFunc("/selectseat/{seatID}/{busID}", BookingController.SelectSeat).Methods("GET")
 	router.HandleFunc("/viewseats/{busID}", middlewares.FetchCommonData(BookingController.ViewSeats)).Methods("GET")
 	router.HandleFunc("/selectseat/{seatID}/{busID}", middlewares.FetchCommonData(BookingController.SelectSeat)).Methods("GET")
 }
 
 func walletHandler(router *mux.Router) {
 	router.Handle("/addMoney/{userID}", auth.VerifyJWT(http.HandlerFunc(WalletController.AddToWallet))).Methods("POST", "OPTIONS")
-	// router.HandleFunc("/addMoney/{userID}", WalletController.AddToWallet).Methods("POST", "OPTIONS")
 	router.Handle("/withdrawMoney/{userID}", auth.VerifyJWT(http.HandlerFunc(WalletController.WithdrawFromWallet))).Methods("POST", "OPTIONS")
 	router.Handle("/getWalletBalance/{userID}", auth.VerifyJWT(http.HandlerFunc(WalletController.GetWalletBalance))).Methods("GET")
-	// router.HandleFunc("/withdrawMoney/{userID}", WalletController.WithdrawFromWallet).Methods("POST", "OPTIONS")
 }
 
 func offerHandler(router *mux.Router) {
