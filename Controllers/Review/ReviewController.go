@@ -32,21 +32,27 @@ func AddReview(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal([]byte(asString), &review)
 
 		var params = mux.Vars(r)
-		customerID := params["customerID"]
-		busID := params["busID"]
-		objIDCustomer, _ := primitive.ObjectIDFromHex(customerID)
-		objIDBus, _ := primitive.ObjectIDFromHex(busID)
-		review.BusID = objIDBus
-		review.CustomerID = objIDCustomer
+		// customerID := params["customerID"]
+		// busID := params["busID"]
+		// objIDCustomer, _ := primitive.ObjectIDFromHex(customerID)
+		// objIDBus, _ := primitive.ObjectIDFromHex(busID)
+		// review.BusID = objIDBus
+		// review.CustomerID = objIDCustomer
+
+		ticketID := params["ticketID"]
+		objTicketID, _ := primitive.ObjectIDFromHex(ticketID)
 
 		var ticket models.Ticket
 		ticketCollection := connection.ConnectDB("Tickets")
-		filter := bson.M{"customerID": objIDCustomer, "busID": objIDBus}
+		filter := bson.M{"_id": objTicketID}
 		err = ticketCollection.FindOne(context.TODO(), filter).Decode(&ticket)
 		if err != nil {
 			json.NewEncoder(w).Encode("You cannot rate a bus that you have not traveled on!")
 			return
 		}
+		objIDBus := ticket.BusID
+		review.BusID = objIDBus
+		review.CustomerID = ticket.CustomerID
 		currentTime := time.Now().Format("15:04")
 		currentDate := time.Now().Format("2006-01-02")
 		if currentDate < ticket.DropDate || (currentDate == ticket.DropDate && currentTime < ticket.DropTime) {
@@ -77,11 +83,11 @@ func AddReview(w http.ResponseWriter, r *http.Request) {
 				"avgRating":       newRating,
 			},
 		}
-		result, err := busCollection.UpdateByID(context.TODO(), objIDBus, update)
+		_, err = busCollection.UpdateByID(context.TODO(), objIDBus, update)
 		if err != nil {
 			log.Fatal(err)
 		}
-		json.NewEncoder(w).Encode(result)
+		json.NewEncoder(w).Encode("Review to the bus of ID" + objIDBus.Hex() + " added")
 	}
 }
 
@@ -108,6 +114,7 @@ func GetReviewsByBusID(w http.ResponseWriter, r *http.Request) {
 	if len(reviews) == 0 {
 		// w.Write([]byte("sdfsdf"))
 		json.NewEncoder(w).Encode("This bus has no reviews")
+	} else {
+		json.NewEncoder(w).Encode(reviews)
 	}
-	json.NewEncoder(w).Encode(reviews)
 }

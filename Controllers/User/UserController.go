@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -86,7 +87,6 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		w.Header().Set("Content-Type", "application/json")
 
-		//data is array of bytes
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
 			fmt.Println("Error with data retrieval")
@@ -96,21 +96,41 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		var user models.User
 		json.Unmarshal([]byte(asString), &user)
 
+		validate := validator.New()
+		if err := validate.Struct(user); err != nil {
+			json.NewEncoder(w).Encode("There is some discrepency in input data, please check" + err.Error())
+			return
+		}
+
+		userEmail := user.Email
+
+		collection := connection.ConnectDB("Users")
+		filter := bson.M{
+			"email": userEmail,
+		}
+		count, err := collection.CountDocuments(context.TODO(), filter)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if count != 0 {
+			json.NewEncoder(w).Encode("This email id is already registered.")
+			return
+		}
+
 		//Encrypting password
 		old_pass := user.EncryptedPassword
 		encryptedPass := helper.Encrypt([]byte(old_pass), encryptSecret)
 		user.EncryptedPassword = hex.EncodeToString(encryptedPass)
 		user.ID = primitive.NewObjectID()
 
-		collection := connection.ConnectDB("Users")
-		result, err := collection.InsertOne(context.TODO(), user) //
+		_, err = collection.InsertOne(context.TODO(), user) //
 
 		if err != nil {
 			connection.GetError(err, w)
 			return
 		}
 
-		json.NewEncoder(w).Encode(result)
+		json.NewEncoder(w).Encode("New user successfully registered")
 	}
 }
 
@@ -131,10 +151,14 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal([]byte(asString), &loginDetails)
 		email, ok := loginDetails["email"].(string)
 		if !ok {
-			fmt.Println("email is not a string")
+			json.NewEncoder(w).Encode("Email id not found")
 			return
 		}
-		password, _ := loginDetails["password"].(string)
+		password, ok := loginDetails["password"].(string)
+		if !ok {
+			json.NewEncoder(w).Encode("Password not found")
+			return
+		}
 
 		collection := connection.ConnectDB("Users")
 		filter := bson.M{"email": email}
@@ -160,9 +184,9 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 				HttpOnly: true,
 			}
 			http.SetCookie(w, cookie)
-			json.NewEncoder(w).Encode(token)
-			fmt.Println("User logged in")
+			json.NewEncoder(w).Encode("User logged in")
 		} else {
+			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode("incorrect password")
 		}
 	}
@@ -183,7 +207,7 @@ func GetUserByID(w http.ResponseWriter, r *http.Request) {
 	err := collection.FindOne(context.TODO(), filter).Decode(&user)
 
 	if err != nil {
-		connection.GetError(err, w)
+		json.NewEncoder(w).Encode("User not found, check user ID")
 		return
 	}
 
@@ -279,13 +303,14 @@ func ResetPassword(w http.ResponseWriter, r *http.Request) {
 		filter := bson.M{"userID": userID}
 		err = collection.FindOne(context.TODO(), filter).Decode(&forgotPasswordDetail)
 		if err != nil {
-			json.NewEncoder(w).Encode("The URL has expired!")
+			json.NewEncoder(w).Encode("The URL has expired! or the userID is wrong")
+			return
 		}
 		if forgotPasswordDetail.Key == key {
 			UpdatePassword(userID, newPassword)
 			_, err = collection.DeleteOne(context.TODO(), filter)
 			if err != nil {
-				fmt.Println("Deleted the keys")
+				log.Fatal(err)
 			}
 			json.NewEncoder(w).Encode("Password updated")
 		} else {

@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func AddOffer(w http.ResponseWriter, r *http.Request) {
@@ -32,18 +31,30 @@ func AddOffer(w http.ResponseWriter, r *http.Request) {
 		var offerDetails models.Offer
 		json.Unmarshal([]byte(asString), &offerDetails)
 
+		offerCollection := connection.ConnectDB("Offers")
+		filter := bson.M{
+			"oCode": offerDetails.OfferCode,
+		}
+		count, err := offerCollection.CountDocuments(context.TODO(), filter)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if count != 0 {
+			json.NewEncoder(w).Encode("This offer code already exists")
+			return
+		}
+
 		timeTime, _ := time.Parse("2006-01-02", offerDetails.Validity)
 		timeTime = timeTime.Add(23 * time.Hour)
 		timeTime = timeTime.Add(59 * time.Minute)
 		timeTime = timeTime.Add(59 * time.Second)
 		offerDetails.Validity = timeTime.Format("2006-01-02 15:04:05")
 
-		offerCollection := connection.ConnectDB("Offers")
-		result, err := offerCollection.InsertOne(context.TODO(), offerDetails)
+		_, err = offerCollection.InsertOne(context.TODO(), offerDetails)
 		if err != nil {
 			log.Fatal("Unable to add new offer", err.Error())
 		}
-		json.NewEncoder(w).Encode(result)
+		json.NewEncoder(w).Encode("Offer added. Offer code: " + offerDetails.OfferCode)
 	}
 }
 
@@ -90,12 +101,10 @@ func ApplyOffer(w http.ResponseWriter, r *http.Request) {
 
 		offerCollection := connection.ConnectDB("Offers")
 		baseFare := int(offerDetails["cartValue"].(float64))
-		objID, _ := primitive.ObjectIDFromHex(offerDetails["offerID"].(string))
-		fmt.Print(objID)
-		offerFilter := bson.M{"_id": objID}
+		offerCode := offerDetails["offerCode"].(string)
+		offerFilter := bson.M{"oCode": offerCode}
 
 		var offer models.Offer
-
 		err = offerCollection.FindOne(context.TODO(), offerFilter).Decode(&offer)
 		if err != nil {
 			json.NewEncoder(w).Encode("This offer does not exist")

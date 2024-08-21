@@ -32,7 +32,8 @@ func CancelTicket(w http.ResponseWriter, r *http.Request) {
 		var ticket models.Ticket
 		err := ticketCollection.FindOne(context.TODO(), filter).Decode(&ticket)
 		if err != nil {
-			log.Fatal(err)
+			json.NewEncoder(w).Encode("This ticket does not exist")
+			return
 		}
 
 		busID := ticket.BusID
@@ -189,6 +190,10 @@ func GetTicketByUserID(w http.ResponseWriter, r *http.Request) {
 	defer cursor.Close(context.TODO())
 	if err = cursor.All(context.Background(), &arrTickets); err != nil {
 		log.Fatal(err)
+	}
+	if len(arrTickets) == 0 {
+		json.NewEncoder(w).Encode("No booked tickets by this user or the user ID is not correct, check it")
+		return
 	}
 
 	json.NewEncoder(w).Encode(arrTickets)

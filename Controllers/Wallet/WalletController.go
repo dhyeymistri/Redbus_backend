@@ -6,7 +6,6 @@ import (
 	models "Redbus_backend/Models"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -25,8 +24,7 @@ func AddToWallet(w http.ResponseWriter, r *http.Request) {
 
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			fmt.Println(err)
-			// log.Fatal(errr)
+			log.Fatal(err)
 		}
 		asString := string(data)
 		var walletDetails map[string]interface{}
@@ -56,11 +54,11 @@ func AddToWallet(w http.ResponseWriter, r *http.Request) {
 		}
 
 		update := bson.M{"$inc": bson.M{"walletBalance": int(addedMoney)}}
-		result, err := userCollection.UpdateOne(context.TODO(), filter, update)
+		_, err = userCollection.UpdateOne(context.TODO(), filter, update)
 		if err != nil {
 			log.Fatal(err)
 		}
-		json.NewEncoder(w).Encode(result)
+		json.NewEncoder(w).Encode("Rs. " + strconv.Itoa(int(addedMoney)) + " added to your wallet")
 	}
 }
 
@@ -72,8 +70,7 @@ func WithdrawFromWallet(w http.ResponseWriter, r *http.Request) {
 
 		data, err := io.ReadAll(r.Body)
 		if err != nil {
-			fmt.Println(err)
-			// log.Fatal(errr)
+			log.Fatal(err)
 		}
 		asString := string(data)
 		var walletDetails map[string]interface{}
@@ -97,11 +94,11 @@ func WithdrawFromWallet(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		update := bson.M{"$inc": bson.M{"walletBalance": -int(toWithdrawMoney)}}
-		result, err := userCollection.UpdateOne(context.TODO(), filter, update)
+		_, err = userCollection.UpdateOne(context.TODO(), filter, update)
 		if err != nil {
 			log.Fatal(err)
 		}
-		json.NewEncoder(w).Encode(result)
+		json.NewEncoder(w).Encode("Money withdrawn. Available balance:" + strconv.Itoa(user.WalletBalance-int(toWithdrawMoney)))
 	}
 }
 
@@ -121,5 +118,5 @@ func GetWalletBalance(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	json.NewEncoder(w).Encode(user.WalletBalance)
+	json.NewEncoder(w).Encode("You have Rs. " + strconv.Itoa(user.WalletBalance) + " in your wallet")
 }

@@ -30,7 +30,7 @@ func GetRouter() *mux.Router {
 func userHandler(router *mux.Router) {
 	router.HandleFunc("/register", UserController.RegisterUser).Methods("POST", "OPTIONS")
 	router.HandleFunc("/login", UserController.LoginUser).Methods("POST", "OPTIONS")
-	router.HandleFunc("/users/{userID}", UserController.GetUserByID).Methods("GET")
+	router.Handle("/users/{userID}", auth.VerifyJWT(http.HandlerFunc(UserController.GetUserByID))).Methods("GET")
 	router.Handle("/logout", auth.VerifyJWT(http.HandlerFunc(UserController.Logout))).Methods("GET")
 	router.HandleFunc("/forgotpassword", UserController.VerifyEmailAndSendKey).Methods("POST", "OPTIONS")
 	router.HandleFunc("/resetpassword", UserController.ResetPassword).Methods("POST", "OPTIONS")
@@ -61,11 +61,11 @@ func offerHandler(router *mux.Router) {
 }
 
 func reviewHandler(router *mux.Router) {
-	router.Handle("/addReview/{customerID}/{busID}", auth.VerifyJWT(http.HandlerFunc(ReviewController.AddReview))).Methods("POST", "OPTIONS")
+	router.Handle("/addReview/{ticketID}", auth.VerifyJWT(http.HandlerFunc(ReviewController.AddReview))).Methods("POST", "OPTIONS")
 	router.HandleFunc("/getReviews/{busID}", ReviewController.GetReviewsByBusID).Methods("GET")
 }
 
 func ticketHandler(router *mux.Router) {
-	router.HandleFunc("/cancelTicket/{ticketID}", TicketController.CancelTicket).Methods("DELETE")
-	router.HandleFunc("/getTickets/{userID}", TicketController.GetTicketByUserID).Methods("GET")
+	router.Handle("/cancelTicket/{ticketID}", auth.VerifyJWT(http.HandlerFunc(TicketController.CancelTicket))).Methods("DELETE")
+	router.Handle("/getTickets/{userID}", auth.VerifyJWT(http.HandlerFunc(TicketController.GetTicketByUserID))).Methods("GET")
 }

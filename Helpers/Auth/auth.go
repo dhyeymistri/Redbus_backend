@@ -37,6 +37,7 @@ func VerifyJWT(next http.Handler) http.Handler {
 		}
 		if err != nil {
 			if err == http.ErrNoCookie {
+				json.NewEncoder(w).Encode("User is not logged in")
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -36,6 +37,31 @@ func FetchCommonData(next http.HandlerFunc) http.HandlerFunc {
 		startDestination, _ := searchDetails["fromLocation"].(string)
 		finalDestination := searchDetails["toLocation"].(string)
 		travelDate := searchDetails["travelDate"].(string)
+
+		currentDate := time.Now().Format("2006-01-02")
+		if currentDate > travelDate {
+			json.NewEncoder(w).Encode("Choose a future date to travel")
+			return
+		}
+
+		locationCollection := connection.ConnectDB("Locations")
+
+		var startOfRoute models.Route
+		var endOfRoute models.Route
+
+		startFilter := bson.M{"location": startDestination}
+		endFilter := bson.M{"location": finalDestination}
+
+		errr := locationCollection.FindOne(context.TODO(), startFilter).Decode(&startOfRoute)
+		if errr != nil {
+			json.NewEncoder(w).Encode("Redbus does not serve in " + startDestination)
+			return
+		}
+		errr = locationCollection.FindOne(context.TODO(), endFilter).Decode(&endOfRoute)
+		if errr != nil {
+			json.NewEncoder(w).Encode("Redbus does not serve in " + finalDestination)
+			return
+		}
 
 		params := mux.Vars(r)
 		strBusID := params["busID"]

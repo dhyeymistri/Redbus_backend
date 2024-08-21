@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
@@ -69,6 +70,8 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 		userCollection := connection.ConnectDB("Users")
 		filter := bson.M{"_id": objUserID}
 		totalPayableAmount := bookingDetails.TotalPayableAmount
+
+		//adding gst the user has not applied offer
 		if bookingDetails.DiscountedAmount == 0 {
 			bookingDetails.GST = int(float64(bookingDetails.BaseFare*5)) / 100
 			totalPayableAmount = int(float64(bookingDetails.BaseFare*105)) / 100
@@ -76,8 +79,11 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 		var user models.User
 		err = userCollection.FindOne(context.TODO(), filter).Decode(&user)
 		if err != nil {
-			log.Fatal(err)
+			json.NewEncoder(w).Encode("Unable to find user ID from cookie")
+			return
 		}
+
+		//check if user has sufficient wallet balance
 		if user.WalletBalance < totalPayableAmount {
 			json.NewEncoder(w).Encode("You don't have sufficient balance to book the tickets")
 			return
@@ -90,6 +96,7 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 		deckSlice := []bool{}
 		err = bookingCollection.FindOne(context.TODO(), bookingsFilter).Decode(&foundBooking)
 		if err != nil {
+			//no booking found, make the first seat booking for that bus on that day
 			seats := bus.Seats
 			count := 0
 			for idx := range seats {
@@ -182,7 +189,7 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			json.NewEncoder(w).Encode(insertedResult.InsertedID)
+			json.NewEncoder(w).Encode("Seats booked. Ticket ID: " + insertedResult.InsertedID.(string) + ". Total paid: Rs. " + strconv.Itoa(totalPayableAmount))
 		} else {
 			bookingID := foundBooking.ID
 			filter = bson.M{"bookingID": bookingID}
@@ -267,7 +274,7 @@ func BookSeat(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			json.NewEncoder(w).Encode(result.InsertedID)
+			json.NewEncoder(w).Encode("Seats booked. Ticket ID: " + result.InsertedID.(string) + ". Total paid: Rs. " + strconv.Itoa(totalPayableAmount))
 		}
 
 		update := bson.M{

@@ -183,7 +183,7 @@ func AddBus(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		json.NewEncoder(w).Encode(bus)
+		json.NewEncoder(w).Encode("New bus added. ID: " + newBusID.Hex())
 	}
 }
 
@@ -207,7 +207,7 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 	if exists {
 		filters = value.(map[string]interface{})
 	} else {
-		fmt.Print("No filtering")
+		fmt.Println("No filtering")
 	}
 
 	dateForm, _ := time.Parse("2006-01-02", travelDate)
@@ -238,7 +238,6 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 	}
 	var weekendFilteredBusID []primitive.ObjectID
 	var weekendFilteredStartTime []string
-	fmt.Println(len(endOfRoute.Buses))
 	for index, checkBool := range startOfRoute.IsWeekend {
 		if dateForm.Weekday().String() == "Sunday" || dateForm.Weekday().String() == "Saturday" {
 			weekendFilteredStartTime = append(weekendFilteredStartTime, startOfRoute.DepartureTime[index])
@@ -275,6 +274,7 @@ func GetSearchedBus(w http.ResponseWriter, r *http.Request) {
 						booking.TravelEndLocation = finalDestination
 						booking.TravelStartTime = weekendFilteredStartTime[index]
 						booking.TravelEndTime = obj.ArrivalTime
+						booking.AvailableSeats = bus.TotalSeats
 
 						if minorhelpers.HasDateChanged(weekendFilteredStartTime[index], obj.ArrivalTime) {
 							booking.TravelEndDate = dateForm.Add(time.Hour * 24).Format("2006-01-02")
@@ -343,7 +343,7 @@ func GetBusByID(w http.ResponseWriter, r *http.Request) {
 	err := collection.FindOne(context.TODO(), filter).Decode(&bus)
 
 	if err != nil {
-		connection.GetError(err, w)
+		json.NewEncoder(w).Encode("Bus not found, check your ID")
 		return
 	}
 
