@@ -33,14 +33,14 @@ Welcome to the Redbus Backend API Collection by me. This API collection powers t
 - [Get Offers](#get-offers-endpoint)
 - [Add Offer](#add-offer-endpoint)
 - [Add Review](#add-review-endpoint)
-- [Get All Reviews](#get-all-reviews-of-a-bus)
+- [Get All Reviews](#get-all-reviews-by-bus-id-endpoint)
 - [Cancel Ticket](#cancel-ticket-endpoint)
 - [Get User Data](#get-user-data-endpoint)
-- [Get Bus by ID](#get-bus-by-id)
-- [Get Tickets by User ID](#get-tickets-by-user-id)
+- [Get Bus by ID](#get-bus-by-id-endpoint)
+- [Get Tickets by User ID](#get-tickets-by-userid-endpoint)
 
 
-## Register Endpoint
+## Register User Endpoint
 
 This API endpoint takes in new user details to register new user on the website
 ### Request
@@ -130,7 +130,7 @@ The request body should be in JSON format and include the following fields:
     "newPassword":"dhyey@123"
 }
 ```
-## Add Money to Wallet Endpoint
+## Add Money To Wallet Endpoint
 
 This API endpoint allows user to add money to their wallet. There is a cap to the amount a user can add at a time and also to the amount a user can have in the wallet. Only logged in users can add money
 
@@ -158,7 +158,7 @@ This API endpoint returns the available balance in a user's wallet
 - **URL**: `http://localhost:3000/getWalletBalance/{userID}`
 
 
-## Withdraw Money from Wallet Endpoint
+## Withdraw Money From Wallet Endpoint
 
 This API endpoint allows user to withdraw a certain amount from his/her wallet
 
@@ -238,7 +238,7 @@ The request body should be in JSON format and include the following fields:
     "travelDate":"2024-08-24"
 }
 ```
-## View Seat Endpoint
+## View Seats Endpoint
 This API endpoint uses gets the seating arrangement, availability and pricing based on the booking
 
 ### Request
@@ -379,7 +379,7 @@ The request body should be in JSON format and include the following fields:
     "reviewText":"This is a good bus"
 }
 ```
-## Get All Reviews by Bus ID Endpoint
+## Get All Reviews By Bus ID Endpoint
 
 This API endpoint fetches all reviews based on the bus ID
 
@@ -416,7 +416,7 @@ This API endpoint returns all details of a user
 - **Method**: `GET`
 - **URL**: `http://localhost:3000/users/{userID}`
 
-## Get Tickets by UserID Endpoint
+## Get Tickets By UserID Endpoint
 
 This API endpoint returns an array of all tickets booked by a user
 ### Request
@@ -425,7 +425,7 @@ This API endpoint returns an array of all tickets booked by a user
 - **URL**: `http://localhost:3000/getTickets/{userID}`
 
 
-## Get Bus by ID Endpoint
+## Get Bus By ID Endpoint
 
 This API endpoint returns complete bus details based on the bus ID
 
